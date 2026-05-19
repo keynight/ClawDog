@@ -2,519 +2,460 @@
 The ClawDog project aims to transform your toy robot dog into an intelligent, autonomous quadruped robot using ESP32-S3-N16R8, ROS2, and WitRobot LiDAR, with eventual integration into the OpenClaw framework 
 ![alt text](https://github.com/keynight/ClawDog/blob/main/ClawDog.png)
 
-# **ClawDog Project - Comprehensive Development Plan**
+# **ClawDog Project - Complete Import & Consolidated Plan** 🐕🤖
 
-## **📋 Project Overview**
-
-The **ClawDog** project aims to transform your toy robot dog into an intelligent, autonomous quadruped robot using ESP32-S3-N16R8, ROS2, and WitRobot LiDAR, with eventual integration into the OpenClaw framework [[22]][[27]].
+Thank you for the link! I've successfully imported all the technical details from your previous conversation. Here's the **complete consolidated plan** for your ClawDog project, now with hardware-specific insights.
 
 ---
 
-## **🛠️ Hardware Architecture**
+## 🔍 **Hardware Analysis Summary**
 
-### **Components Needed:**
-1. **ESP32-S3-N16R8** - Main controller
-2. **WitRobot LiDAR** - For autonomous navigation
-3. **Motor Driver** - Keep from original toy
-4. **Motors/Servos** - Keep from original toy (12 DOF recommended)
-5. **IMU Sensor** (MPU6050/MPU9250) - For balance
-6. **Battery** - 7.4V LiPo recommended
-7. **Motor Driver Board** - TB6612FNG or similar
-8. **UART to USB Converter** - For LiDAR connection
-9. **Power Distribution Board**
+### **Identified Boards:**
+
+| Board | Marking | Function | Key Components |
+|-------|---------|----------|---------------|
+| **Transmitter/Remote** | `SDL-8002-YW-2.4G-MIC-TX2-ZXC` | 2.4G Remote Control | AF256P2K13-45A4 (2.4G RF module) |
+| **Main Board (in dog)** | `SDL-8008+2.4G+YW-RV3-ZXC` | Motor Control Hub | 5× SAB301 H-bridge drivers, ESP32? |
+
+### **Critical Finding:**
+The main board likely already contains an ESP32-compatible chip. **Before adding your ESP32-S3-N16R8**, verify:
+- Look for a 7×7mm or 5×5mm chip labeled "ESP32"
+- Check for UART debug pads: `TX`, `RX`, `GND`, `3V3`
+- Photograph both sides of the PCB for reverse-engineering
 
 ---
 
-## **💻 Software Architecture**
+## 🎯 **Two Strategic Paths**
 
-### **System Layers:**
+### **PATH 1: Parallel Control (✅ Recommended for Start)**
 ```
-┌─────────────────────────────────────┐
-│      OpenClaw Framework             │ ← High-level AI control
-├─────────────────────────────────────┤
-│      ROS2 Navigation Stack (Nav2)   │ ← Autonomous navigation
-├─────────────────────────────────────┤
-│   micro-ROS Agent (PC/Raspberry Pi) │ ← Bridge
-├─────────────────────────────────────┤
-│   ESP32-S3 with micro-ROS           │ ← Low-level motor control
-├─────────────────────────────────────┤
-│   Motors | LiDAR | IMU | Sensors    │ ← Hardware layer
-└─────────────────────────────────────┘
+Original Board → SAB301 Drivers → Motors
+                      ↑
+              Your ESP32-S3 (parallel tap)
 ```
+**Pros:**
+- ✅ Non-destructive: keep factory mode as fallback
+- ✅ No need to reverse 2.4G protocol
+- ✅ Faster initial progress
+
+**Cons:**
+- ⚠️ Requires soldering to motor control lines
+- ⚠️ Need signal isolation to avoid conflicts
+
+### **PATH 2: Full Replacement (Advanced)**
+If the onboard chip IS an ESP32:
+1. Connect via UART/USB to existing chip
+2. Dump firmware (if unprotected)
+3. Replace with your custom micro-ROS firmware
+
+**Pros:** Clean architecture, full control  
+**Cons:** Risk of bricking, requires protocol reverse-engineering
 
 ---
 
-## **📅 Implementation Plan**
+## ⚡ **Power Management - CRITICAL SECTION**
 
-### **Phase 1: Foundation Setup (Weeks 1-2)**
+### ❌ **Problem: Voltage Mismatch**
+| Source | Voltage | Risk |
+|--------|---------|------|
+| LiPo 14500 (full) | **4.2V** | 🔥 Will damage ESP32-S3 (max 3.6V) |
+| ESP32-S3 VDD | **3.3V nominal** | Requires stable regulation |
 
-#### **1.1 Install ROS2 Humble on PC**
+### ✅ **Solution: Dedicated Power Tree**
+
+```
+LiPo Battery (2S 7.4V recommended)
+        │
+   ┌────┴────┬─────────────────┐
+   ▼         ▼                 ▼
+DC-DC 5V   DC-DC 3.3V     Direct to SA8301
+(3A MP1584) (1A AMS1117)   (4.2-8.4V OK)
+   │         │                 │
+   ▼         ▼                 ▼
+WitMotion  ESP32-S3      Motor Drivers
+LiDAR      + peripherals  → 4× Motors
+(5V, 2A)   (3.3V, 0.5A)
+```
+
+### 🔋 **Power Budget Calculation**
+
+| Component | Voltage | Current (avg/peak) | Power |
+|-----------|---------|-------------------|-------|
+| WitMotion D6 LiDAR | 5V | 0.8A / 1.5A | ~4W |
+| ESP32-S3 + WiFi | 3.3V | 0.3A / 0.5A | ~1W |
+| 4× Motors | 3.7-7.4V | 2A total | ~8W |
+| Conversion losses | - | ~15% | ~1.5W |
+| **TOTAL** | | **~3.5-4A** | **~14.5W** |
+
+### ⏱️ **Runtime Estimate**
+- Single 14500 (1000mAh): **~5-7 minutes real-world**
+- **Recommended**: 2S LiPo 2200mAh 25C → **~30-40 minutes**
+
+---
+
+## 🛠️ **Step-by-Step Implementation Plan**
+
+### **Phase 0: Hardware Prep (Week 1)**
 ```bash
-# Install ROS2 Humble (Ubuntu 22.04)
-sudo apt update && sudo apt install -y software-properties-common
-sudo add-apt-repository universe
-sudo apt update
-sudo apt install -y ros-humble-desktop
-source /opt/ros/humble/setup.bash
+# 1. Document your hardware
+- Photograph main board (both sides, macro shots)
+- Identify UART pads: TX/RX/GND/3V3
+- Trace motor signal lines from MCU → SAB301
+
+# 2. Prepare power system
+- Acquire: AMS1117-3.3, MP1584 (5V), capacitors (10µF + 0.1µF)
+- Build test power tree on breadboard
+- Verify 3.3V stability under load
+
+# 3. ESP32-S3 setup
+- Install ESP-IDF v5.1+ for ESP32-S3
+- Test basic blink + UART communication
 ```
 
-#### **1.2 Set up micro-ROS for ESP32-S3**
-Follow the micro-ROS installation guide [[40]][[43]]:
-
-```bash
-# Install micro-ROS dependencies
-sudo apt install -y python3-dev python3-pip
-pip3 install catkin_pkg lark-parser empy==3.3.44
-
-# Clone micro-ROS firmware
-git clone -b humble https://github.com/micro-ROS/micro_ros_espidf_component.git
-cd micro_ros_espidf_component
-```
-
-#### **1.3 Install micro-ROS Agent**
-```bash
-# On your PC/Raspberry Pi
-ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyACM0 -b 115200
-```
-The micro-ROS Agent acts as a bridge between ESP32 and ROS2 [[45]].
-
----
-
-### **Phase 2: ESP32 Firmware Development (Weeks 3-4)**
-
-#### **2.1 Create micro-ROS Firmware**
+### **Phase 1: micro-ROS Firmware (Weeks 2-3)**
 ```cpp
-// main.cpp - Basic micro-ROS setup for ESP32-S3
+// firmware/esp32_micro_ros/main/clawdog_main.cpp
 #include <micro_ros_espidf_component.h>
 #include <rcl/rcl.h>
-#include <rcl/error_handling.h>
-#include <std_msgs/msg/int32.h>
 #include <geometry_msgs/msg/twist.h>
+#include <sensor_msgs/msg/joint_state.h>
 
-// Motor control subscriber
-rcl_subscription_t cmd_vel_sub;
-geometry_msgs_msg_Twist cmd_vel_msg;
+// Motor control via SAB301 H-bridges
+typedef struct {
+    uint8_t pwm_pin;
+    uint8_t dir_pin;
+} motor_config_t;
+
+static motor_config_t motors[4] = {
+    {GPIO_NUM_10, GPIO_NUM_11}, // Front-Left
+    {GPIO_NUM_12, GPIO_NUM_13}, // Front-Right
+    {GPIO_NUM_14, GPIO_NUM_15}, // Rear-Left
+    {GPIO_NUM_16, GPIO_NUM_17}, // Rear-Right
+};
 
 void cmd_vel_callback(const void *msgin) {
-    const geometry_msgs_msg_Twist *msg = (const geometry_msgs_msg_Twist *)msgin;
-    // Process velocity commands for quadruped gait
-    control_motors(msg->linear.x, msg->angular.z);
+    const geometry_msgs__msg__Twist *msg = 
+        (const geometry_msgs__msg__Twist *)msgin;
+    
+    // Convert Twist to quadruped gait commands
+    execute_trot_gait(msg->linear.x, msg->angular.z);
 }
 
-void setup() {
-    // Initialize micro-ROS
+void app_main(void) {
     micro_ros_espidf_component_init();
     
-    // Create node
+    // Initialize micro-ROS node
     rcl_node_t node = rcl_get_zero_initialized_node();
     rcl_node_options_t node_ops = rcl_node_get_default_options();
     rcl_node_init(&node, "clawdog_esp32", "", &node_ops);
     
-    // Create subscriber for motor control
-    cmd_vel_sub = rcl_get_zero_initialized_subscription();
+    // Subscribe to motor commands
+    rcl_subscription_t cmd_sub = rcl_get_zero_initialized_subscription();
     rcl_subscription_options_t sub_ops = rcl_subscription_get_default_options();
-    rcl_subscription_init(&cmd_vel_sub, &node, 
-                         ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
-                         "cmd_vel", &sub_ops);
-}
-
-void loop() {
-    // Spin micro-ROS
-    rcl_spin(&node);
-    vTaskDelay(pdMS_TO_TICKS(10));
-}
-```
-
-#### **2.2 Motor Control Implementation**
-Implement inverse kinematics for quadruped locomotion [[48]][[54]]:
-
-```cpp
-// inverse_kinematics.cpp
-struct LegIK {
-    float calculate_joint_angles(float x, float y, float z) {
-        // Calculate hip, knee, ankle angles
-        float hip = atan2(y, x);
-        float knee = acos((x*x + z*z - L1*L1 - L2*L2) / (2*L1*L2));
-        float ankle = /* calculate ankle */;
-        return {hip, knee, ankle};
+    rcl_subscription_init(&cmd_sub, &node,
+        ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
+        "cmd_vel", &sub_ops);
+    
+    // Main loop
+    while(1) {
+        rcl_spin(&node);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
-};
-
-// Gait patterns (Trot, Walk, Bound)
-enum GaitPattern { TROT, WALK, BOUND };
-
-void execute_gait(GaitPattern pattern, float velocity, float turn) {
-    // Implement quadruped gait sequences
-    // Control 4 legs with proper timing
 }
 ```
 
----
+### **Phase 2: Motor Signal Interception (Week 4)**
+```
+Original Signal Path:
+[MCU] --PWM/DIR--> [SAB301] --H-Bridge--> [Motor]
+
+Your Parallel Tap:
+[MCU] --PWM/DIR--+--> [SAB301] --> [Motor]
+                 |
+                 +--> [ESP32-S3 GPIO] (input mode)
+
+Override Mode (ROS2 active):
+[ESP32-S3] --PWM/DIR--> [SAB301] --> [Motor]
+                 ^
+                 | (original MCU signals tri-stated or ignored)
+```
+
+**Implementation Tips:**
+- Use 74HC125 bus buffers for signal isolation
+- Add 10kΩ pull-downs to avoid floating inputs
+- Test with logic analyzer first (Saleae/DSO)
 
 ### **Phase 3: LiDAR Integration (Weeks 5-6)**
-
-#### **3.1 Connect WitRobot LiDAR**
-Connect LiDAR to ESP32 or directly to PC via UART/USB [[56]][[64]]:
-
-```bash
-# Install LiDAR driver for ROS2
-cd ~/ros2_ws/src
-git clone https://github.com/Myzhar/ldrobot-lidar-ros2.git  # Example for LD19
-cd ..
-colcon build --packages-select ldrobot_lidar_ros2
-source install/setup.bash
-```
-
-#### **3.2 Create LiDAR ROS2 Node**
 ```python
-# lidar_driver.py
+# ros2_packages/witrobot_lidar_driver/src/lidar_node.py
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
 import serial
+import struct
 
 class WitRobotLiDAR(Node):
     def __init__(self):
         super().__init__('witrobot_lidar')
-        self.publisher = self.create_publisher(LaserScan, 'scan', 10)
-        self.serial_port = serial.Serial('/dev/ttyUSB0', 115200)
-        self.timer = self.create_timer(0.1, self.publish_scan)
-    
+        self.publisher_ = self.create_publisher(LaserScan, 'scan', 10)
+        self.serial = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.1)
+        self.timer = self.create_timer(0.05, self.publish_scan)  # 20Hz
+        
+    def parse_lidar_frame(self, data):
+        # WitMotion protocol parsing
+        # Returns list of distances in meters
+        ranges = []
+        # ... implement protocol decoder ...
+        return ranges
+        
     def publish_scan(self):
-        scan_msg = LaserScan()
-        scan_msg.header.stamp = self.get_clock().now().to_msg()
-        scan_msg.header.frame_id = 'laser_frame'
-        scan_msg.angle_min = -3.14159
-        scan_msg.angle_max = 3.14159
-        scan_msg.angle_increment = 0.01745  # 1 degree
-        scan_msg.range_min = 0.1
-        scan_msg.range_max = 12.0
-        
-        # Read data from LiDAR
-        data = self.read_lidar_data()
-        scan_msg.ranges = data
-        
-        self.publisher.publish(scan_msg)
+        scan = LaserScan()
+        scan.header.stamp = self.get_clock().now().to_msg()
+        scan.header.frame_id = 'laser_link'
+        scan.angle_min = -3.14159
+        scan.angle_max = 3.14159
+        scan.angle_increment = 0.0174533  # 1 degree
+        scan.range_min = 0.1
+        scan.range_max = 12.0
+        scan.ranges = self.parse_lidar_frame(self.serial.read(1024))
+        self.publisher_.publish(scan)
 ```
-
----
 
 ### **Phase 4: ROS2 Navigation Stack (Weeks 7-9)**
-
-#### **4.1 Install Nav2**
-```bash
-sudo apt install ros-humble-navigation2
-sudo apt install ros-humble-nav2-bringup
-```
-
-#### **4.2 Create Robot URDF**
-```xml
-<!-- clawdog.urdf -->
-<robot name="clawdog">
-    <!-- Base link -->
-    <link name="base_link">
-        <visual>
-            <geometry>
-                <box size="0.3 0.2 0.15"/>
-            </geometry>
-        </visual>
-    </link>
-    
-    <!-- LiDAR link -->
-    <link name="laser_frame">
-        <visual>
-            <geometry>
-                <cylinder radius="0.05" length="0.05"/>
-            </geometry>
-        </visual>
-    </link>
-    
-    <joint name="laser_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="laser_frame"/>
-        <origin xyz="0 0 0.1" rpy="0 0 0"/>
-    </joint>
-    
-    <!-- 4 Legs with 3 DOF each -->
-    <!-- Implement leg kinematics -->
-</robot>
-```
-
-#### **4.3 Configure Nav2 for Quadruped**
-Create navigation parameters [[65]][[66]]:
-
 ```yaml
-# nav2_params.yaml
+# ros2_packages/clawdog_bringup/params/nav2_params.yaml
 nav2_params:
   controller_server:
     ros__parameters:
       controller_frequency: 20.0
-      min_x_velocity_threshold: 0.001
-      min_y_velocity_threshold: 0.001
-      min_theta_velocity_threshold: 0.001
-      
+      min_x_velocity_threshold: 0.01
+      min_theta_velocity_threshold: 0.01
+      FollowPath:
+        plugin: "dwb_core::DWBLocalPlanner"
+        critics: ["RotateToGoal", "Oscillation", "BaseObstacle"]
+        
   planner_server:
     ros__parameters:
       planner_plugins: ["GridBased"]
       GridBased:
         plugin: "nav2_navfn_planner/NavfnPlanner"
         tolerance: 0.5
-        use_astar: false
-        allow_unknown: true
         
-  recovery_server:
+  recoveries_server:
     ros__parameters:
       recovery_plugins: ["spin", "backup", "wait"]
 ```
 
----
-
-### **Phase 5: Integration & Testing (Weeks 10-12)**
-
-#### **5.1 Create Launch Files**
+### **Phase 5: OpenClaw Integration (Weeks 10-12)**
 ```python
-# clawdog_launch.py
-from launch import LaunchDescription
-from launch_ros.actions import Node
-
-def generate_launch_description():
-    return LaunchDescription([
-        # micro-ROS Agent
-        Node(
-            package='micro_ros_agent',
-            executable='micro_ros_agent',
-            arguments=['serial', '--dev', '/dev/ttyACM0', '-b', '115200']
-        ),
-        
-        # LiDAR Driver
-        Node(
-            package='witrobot_lidar',
-            executable='lidar_node',
-            name='witrobot_lidar'
-        ),
-        
-        # Robot State Publisher
-        Node(
-            package='robot_state_publisher',
-            executable='robot_state_publisher',
-            parameters=[{'robot_description': open('clawdog.urdf').read()}]
-        ),
-        
-        # Nav2
-        Node(
-            package='nav2_bringup',
-            executable='bringup_launch.py',
-            parameters=['nav2_params.yaml']
-        ),
-    ])
-```
-
-#### **5.2 Test Autonomous Navigation**
-```bash
-# Launch everything
-ros2 launch clawdog_bringup clawdog_launch.py
-
-# Set initial pose in RViz
-# Send goal pose
-ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
-"{pose: {header: {frame_id: map}, pose: {position: {x: 1.0, y: 2.0}}}}"
-```
-
----
-
-### **Phase 6: OpenClaw Integration (Weeks 13-16)**
-
-#### **6.1 Install OpenClaw**
-```bash
-# Clone OpenClaw Robotics
-git clone https://github.com/LooperRobotics/OpenClaw-Robotics.git
-cd OpenClaw-Robotics
-pip install -e .
-```
-
-#### **6.2 Create ROSClaw Bridge**
-Integrate with ROSClaw (OpenClaw ROS2 framework) [[22]][[27]]:
-
-```python
-# openc law_bridge.py
-import rclpy
+# openc law_integration/clawdog_agent.py
 from openc law.agent import Agent
-from openc law.robot import RobotCapabilities
+from openc law.robot import RobotCapabilities, SensorType
 
 class ClawDogAgent(Agent):
     def __init__(self):
-        super().__init__("ClawDog")
-        
-        # Define robot capabilities
+        super().__init__("ClawDog_v1")
         self.capabilities = RobotCapabilities(
-            locomotion="quadruped",
-            sensors=["lidar", "imu"],
-            manipulation=False
+            locomotion="quadruped_trot",
+            sensors=[SensorType.LIDAR_2D, SensorType.IMU],
+            manipulation=False,
+            max_payload_kg=0.5
         )
         
-    async def execute_task(self, task: str):
-        # High-level task execution via OpenClaw
-        if "navigate" in task:
-            await self.navigate_to_goal(task)
-        elif "explore" in task:
-            await self.explore_environment()
+    async def on_task_received(self, task: dict):
+        """OpenClaw task handler"""
+        if task['type'] == 'navigate':
+            await self._navigate(task['goal_pose'])
+        elif task['type'] == 'explore':
+            await self._autonomous_exploration()
+            
+    async def _navigate(self, goal):
+        # Send goal to Nav2 via ROS2 action
+        from nav2_msgs.action import NavigateToPose
+        # ... implementation ...
 ```
 
 ---
 
-## **📁 GitHub Repository Structure**
+## 📁 **GitHub Repository Structure (Final)**
 
 ```
 ClawDog/
-├── README.md
-├── LICENSE
+├── README.md                    # Project overview + badges
+├── LICENSE                      # MIT/Apache 2.0
 ├── docs/
-│   ├── hardware_setup.md
-│   ├── software_architecture.md
+│   ├── hardware/
+│   │   ├── board_analysis.md    # SDL-8008 reverse notes
+│   │   ├── wiring_diagram.pdf   # Fritzing schematic
+│   │   └── power_tree.md        # Voltage regulation guide
+│   ├── software/
+│   │   ├── micro_ros_setup.md
+│   │   ├── ros2_navigation.md
+│   │   └── openc law_integration.md
 │   └── tutorials/
+│       ├── first_flash.md
+│       └── calibration_guide.md
+│
 ├── firmware/
-│   ├── esp32_micro_ros/
-│   │   ├── main/
-│   │   │   ├── CMakeLists.txt
-│   │   │   ├── main.cpp
-│   │   │   ├── motor_control.cpp
-│   │   │   └── inverse_kinematics.cpp
-│   │   └── README.md
+│   └── esp32_micro_ros/
+│       ├── CMakeLists.txt
+│       ├── main/
+│       │   ├── CMakeLists.txt
+│       │   ├── clawdog_main.cpp      # micro-ROS entry
+│       │   ├── motor_driver.cpp      # SAB301 control
+│       │   ├── inverse_kinematics.cpp # Quadruped gait math
+│       │   └── idf_component.yml
+│       └── partitions.csv
+│
 ├── ros2_packages/
-│   ├── clawdog_bringup/
+│   ├── clawdog_bringup/           # Launch files + params
 │   │   ├── launch/
-│   │   │   └── clawdog_launch.py
+│   │   │   ├── clawdog.launch.py
+│   │   │   └── simulation.launch.py
 │   │   ├── params/
-│   │   │   └── nav2_params.yaml
+│   │   │   ├── nav2_params.yaml
+│   │   │   └── ekf_params.yaml
 │   │   └── CMakeLists.txt
-│   ├── clawdog_description/
-│   │   ├── urdf/
-│   │   │   └── clawdog.urdf
+│   │
+│   ├── clawdog_description/       # URDF + meshes
+│   │   ├── urdf/clawdog.urdf
+│   │   ├── meshes/
 │   │   └── CMakeLists.txt
-│   ├── witrobot_lidar_driver/
-│   │   ├── src/
-│   │   │   └── lidar_node.py
-│   │   └── CMakeLists.txt
-│   └── clawdog_navigation/
-│       ├── config/
-│       ├── maps/
+│   │
+│   ├── witrobot_lidar_driver/     # LiDAR ROS2 node
+│   │   ├── src/lidar_node.py
+│   │   ├── setup.py
+│   │   └── package.xml
+│   │
+│   └── clawdog_navigation/        # Nav2 custom plugins
+│       ├── plugins/
+│       │   └── quadruped_costmap_plugin.cpp
 │       └── CMakeLists.txt
+│
 ├── openc law_integration/
-│   ├── openc law_bridge.py
-│   ├── capabilities.py
-│   └── README.md
+│   ├── clawdog_agent.py           # OpenClaw agent class
+│   ├── capabilities.py            # Robot capability definitions
+│   └── requirements.txt
+│
 ├── hardware/
 │   ├── schematics/
+│   │   ├── power_distribution.kicad_sch
+│   │   └── motor_interface.kicad_sch
 │   ├── 3d_models/
-│   └── wiring_diagram.pdf
+│   │   └── clawdog_mounts/
+│   └── BOM.csv                    # Bill of Materials
+│
 ├── scripts/
-│   ├── setup.sh
-│   ├── flash_esp32.sh
-│   └── calibration.py
+│   ├── setup_env.sh               # One-command dev env setup
+│   ├── flash_esp32.sh             # IDF flash + monitor
+│   ├── calibrate_imu.py           # IMU calibration utility
+│   └── record_bag.sh              # ROS2 bag recording
+│
 └── tests/
-    ├── unit_tests/
-    └── integration_tests/
+    ├── unit/
+    │   ├── test_inverse_kinematics.py
+    │   └── test_motor_driver.cpp
+    └── integration/
+        └── test_nav2_launch.py
 ```
 
 ---
 
-## **🔧 Development Workflow**
-
-### **Step-by-Step Guide:**
-
-1. **Week 1-2: Environment Setup**
-   - Install Ubuntu 22.04 or use WSL2
-   - Install ROS2 Humble
-   - Install ESP-IDF for ESP32-S3
-   - Set up micro-ROS [[40]][[43]]
-
-2. **Week 3-4: Basic Motor Control**
-   - Flash micro-ROS firmware to ESP32-S3
-   - Test motor control via ROS2 topics
-   - Implement basic gait patterns [[48]]
-
-3. **Week 5-6: Sensor Integration**
-   - Connect and test WitRobot LiDAR
-   - Publish LaserScan messages
-   - Add IMU for balance
-
-4. **Week 7-9: Navigation**
-   - Configure Nav2 for quadruped [[65]][[66]]
-   - Create URDF model
-   - Test autonomous navigation in simulation
-
-5. **Week 10-12: Real Robot Testing**
-   - Deploy to physical robot
-   - Tune PID controllers
-   - Test obstacle avoidance
-
-6. **Week 13-16: OpenClaw Integration**
-   - Install OpenClaw framework [[27]]
-   - Create capability interfaces
-   - Test AI-driven control
-
----
-
-## **🚀 Quick Start Commands**
+## 🚀 **Quick Start: First 30 Minutes**
 
 ```bash
-# Clone the repository
+# 1. Clone & setup
 git clone https://github.com/YOUR_USERNAME/ClawDog.git
 cd ClawDog
+./scripts/setup_env.sh  # Installs ROS2 Humble + ESP-IDF
 
-# Build ROS2 packages
+# 2. Build ROS2 packages
 colcon build --symlink-install
 source install/setup.bash
 
-# Flash ESP32
+# 3. Flash ESP32-S3 (first test)
 cd firmware/esp32_micro_ros
 idf.py set-target esp32s3
-idf.py flash monitor
+idf.py flash monitor  # Should see micro-ROS boot logs
 
-# Run on PC
-ros2 launch clawdog_bringup clawdog_launch.py
+# 4. Test micro-ROS Agent (on PC)
+ros2 run micro_ros_agent micro_ros_agent serial \
+  --dev /dev/ttyACM0 -b 115200
+
+# 5. Verify communication
+ros2 topic list  # Should see /cmd_vel, /joint_states, etc.
 ```
 
 ---
 
-## **📚 Key Resources**
+## 📚 **Essential Resources**
 
-1. **micro-ROS Documentation**: https://micro.ros.org
-2. **ROS2 Navigation**: https://docs.nav2.org
-3. **OpenClaw**: https://github.com/LooperRobotics/OpenClaw-Robotics [[27]]
-4. **ESP32 Quadruped Examples**: [[50]][[55]]
-5. **Nav2 for Quadrupeds**: [[65]][[66]]
-
----
-
-## **⚠️ Important Notes**
-
-- **Power Management**: Ensure adequate battery capacity (minimum 5000mAh)
-- **Safety**: Implement emergency stop functionality
-- **Testing**: Test each component individually before integration
-- **Documentation**: Document all changes and calibrations
-- **Version Control**: Use Git branches for feature development
+| Resource | Link | Purpose |
+|----------|------|---------|
+| micro-ROS ESP32 Guide | https://micro.ros.org/docs/tutorials/core/esp32/ | Firmware setup |
+| ROS2 Navigation2 | https://docs.nav2.org | Autonomous navigation |
+| OpenClaw Docs | https://github.com/LooperRobotics/OpenClaw-Robotics | AI task framework |
+| ESP32-S3 Datasheet | https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf | Pinout + electrical specs |
+| SAB301 Datasheet | (Search "SAB301 H-bridge") | Motor driver control protocol |
+| WitMotion LiDAR Protocol | (Contact WitRobot support) | UART frame parsing |
 
 ---
 
-## **🎯 Milestones**
+## ⚠️ **Critical Safety Checklist**
 
-✅ **M1**: ESP32-S3 communicates with ROS2 via micro-ROS  
-✅ **M2**: Motors respond to ROS2 commands  
-✅ **M3**: LiDAR data published to ROS2  
-✅ **M4**: Basic gait implemented (walking)  
-✅ **M5**: Nav2 navigation working  
-✅ **M6**: Autonomous obstacle avoidance  
-✅ **M7**: OpenClaw integration complete  
-✅ **M8**: AI-driven task execution
+- [ ] **Power**: Never connect 4.2V LiPo directly to ESP32 VCC
+- [ ] **Isolation**: Use optocouplers/bus buffers when tapping motor lines
+- [ ] **Emergency Stop**: Implement hardware kill-switch (physical button cutting motor power)
+- [ ] **Testing**: First tests with dog elevated (wheels off ground)
+- [ ] **Backup**: Keep original firmware + board configuration documented
 
 ---
 
-## **🤝 Next Steps**
+## 🎯 **Milestones Tracker**
 
-1. Create GitHub repository: `git init && git remote add origin https://github.com/keynight/ClawDog.git`
-2. Start with Phase 1 setup
-3. Join ROS2 and OpenClaw communities for support
-4. Document your progress with photos/videos
+```mermaid
+gantt
+    title ClawDog Development Timeline
+    dateFormat  YYYY-MM-DD
+    section Hardware
+    Power Tree Build       :done,    des1, 2024-01-01, 3d
+    Signal Tap Verification:active,  des2, 2024-01-04, 4d
+    section Firmware
+    micro-ROS Basic Test  :         des3, 2024-01-08, 5d
+    Motor Control Gait    :         des4, after des3, 7d
+    section ROS2
+    LiDAR Driver          :         des5, 2024-01-15, 5d
+    Nav2 Integration      :         des6, after des5, 10d
+    section AI
+    OpenClaw Bridge       :         des7, 2024-02-01, 7d
+    Autonomous Demo       :         des8, after des7, 5d
+```
 
-**Good luck with your ClawDog project! I'll guide you through each step.** 🐕
+---
+
+## 🤝 **Next Immediate Actions**
+
+1. **Today**: 
+   - Create GitHub repo: `gh repo create ClawDog --public`
+   - Push initial structure above
+   - Add `README.md` with this plan
+
+2. **This Week**:
+   - Photograph your `SDL-8008` board (macro shots!)
+   - Order: AMS1117-3.3, MP1584, 2S LiPo 2200mAh 25C
+   - Test ESP32-S3 blink + UART on breadboard
+
+3. **Share Progress**:
+   - Post board photos here → I'll help identify UART/motor pins
+   - We'll iterate on firmware together
+
+---
+
+> 💡 **Pro Tip**: Start with **PATH 1 (Parallel Control)**. Get motors moving via ROS2 *before* attempting full replacement. Document every wire you tap — future-you will thank present-you.
+
+**Ready when you are, Alexander!** Just say:
+- *"Show me the motor tap wiring diagram"* 
+- *"Help me debug micro-ROS flash"* 
+- *"Let's write the inverse kinematics"*
+
+Let's build this RoboDog! 🐕⚡🤖
