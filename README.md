@@ -15,9 +15,6 @@ Transform a standard toy robot dog into an intelligent, autonomous quadruped by:
 - **Adding** ESP32-S3 + ROS2 for smart decision-making
 - **Integrating** LiDAR for autonomous navigation
 - **Connecting** to OpenClaw for high-level AI tasks
-
-**Your Advantage:** Linux sysadmin + ESP32 experience = perfect foundation for embedded robotics.
-
 ---
 
 ## **🔍 Phase 0: Hardware Intelligence Gathering**
