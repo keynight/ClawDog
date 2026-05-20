@@ -15,11 +15,11 @@ Thank you for the link! I've successfully imported all the technical details fro
 | Board | Marking | Function | Key Components |
 |-------|---------|----------|---------------|
 | **Transmitter/Remote** | `SDL-8002-YW-2.4G-MIC-TX2-ZXC` | 2.4G Remote Control | AF256P2K13-45A4 (2.4G RF module) |
-| **Main Board (in dog)** | `SDL-8008+2.4G+YW-RV3-ZXC` | Motor Control Hub | 5× SAB301 H-bridge drivers, ESP32? |
+| **Main Board (in dog)** | `SDL-8008+2.4G+YW-RV3-ZXC` | Motor Control Hub | 5× SAB301 H-bridge drivers |
 
 ### **Critical Finding:**
 The main board likely already contains an ESP32-compatible chip. **Before adding your ESP32-S3-N16R8**, verify:
-- Look for a 7×7mm or 5×5mm chip labeled "ESP32"
+- Look for a 7×7mm or 5×5mm chip 
 - Check for UART debug pads: `TX`, `RX`, `GND`, `3V3`
 - Photograph both sides of the PCB for reverse-engineering
 
@@ -452,10 +452,5 @@ gantt
 ---
 
 > 💡 **Pro Tip**: Start with **PATH 1 (Parallel Control)**. Get motors moving via ROS2 *before* attempting full replacement. Document every wire you tap — future-you will thank present-you.
-
-**Ready when you are, Alexander!** Just say:
-- *"Show me the motor tap wiring diagram"* 
-- *"Help me debug micro-ROS flash"* 
-- *"Let's write the inverse kinematics"*
 
 Let's build this RoboDog! 🐕⚡🤖
