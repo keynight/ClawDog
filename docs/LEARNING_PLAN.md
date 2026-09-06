@@ -54,8 +54,13 @@ Do these as the **pre-learning track** in parallel with project Stage 0–3. Ubu
 | A6 | URDF/Xacro: link/joint model → what `clawdog_description` is | Build the official "urdf tutorial" robot; view in RViz | 4–6 h |
 | A7 | User-level SLAM + Nav2 *usage*: `slam_toolbox`, costmaps, `navigate_to_pose` | Run Nav2 + SLAM on the official **TB3 simulation** in Gazebo; drive it, map a room, send a navigation goal | 6–10 h |
 | A8 | ros2_control concepts (defer until Stage 3) | Read how a hardware interface + controller manager works on the TB3 example | 3–4 h |
+| A9 | **Optional lab — OmniSim** ([github.com/omnilink-tech/omnisim](https://github.com/omnilink-tech/omnisim)): an agent-native simulator — HTTP/JSON + MCP control, Newton physics (CPU default, **no GPU needed**), wgpu rendering, Apache-2.0, with a ROS 2 sidecar, URDF import, and shipped **quadruped** models/demos | Run the Go2 / OmniQuad legged demos and watch a quadruped walk, stumble and recover; import a URDF into a scene; if ambitious, drive a robot from the ROS 2 sidecar topics | 3–6 h |
 
 **Primary resources (all free):** Official ROS2 Humble tutorials (docs.ros.org/en/humble/Tutorials.html) · Articulated Robotics (articulatedrobotics.xyz + YouTube) — best for beginners · Robotics Back-End (YouTube) · Nav2 docs (navigation.ros.org). If videos help you, start with Articulated Robotics' ROS2 series; it uses the same toy-robot flavor as ClawDog.
+
+**OmniSim details (module A9):** open-source (Apache-2.0, same as ClawDog); the ROS 2 sidecar (`packages/omnisim-ros2`) needs **Humble or newer** (verified on Humble) and exposes `simulation_interfaces` plus the same style of topics the project uses (`joint_states`, `/odom`, `/cmd_vel`, `/scan`, `/imu/data`). It is deliberately agent-friendly — a coding agent can load a world, run it, and hot-reload over plain HTTP — which fits how this project is being developed. **Platform reality:** Linux is a *source build* on Ubuntu 22.04/24.04 (`scripts/install/linux_bootstrap.sh`, ~25–45 min of compile; on 22.04 it installs Python 3.12 via deadsnakes); Windows ships a prebuilt public-beta package; macOS is unsupported. It's a young project in public beta — expect rough edges, and use `python -m omnisim doctor` to verify an install actually has physics.
+
+> **Two-simulator strategy.** Keep **A7 (Gazebo/TurtleBot3) mandatory**: it is the only path where ROS2 + SLAM + Nav2 work end-to-end on Humble today, and it matches the project stack exactly. Use **OmniSim as an extra lab**: it is the closest thing in pure software to ClawDog's actual problem — a *legged* quadruped — plus URDF-import practice and an agent-driven workflow. Honest caveats: OmniSim's own Nav2 bring-up is **Jazzy-only and very new**, its `ros2_control` `SystemInterface` is verified for **velocity-commanded wheeled bases** (Husky) and not yet a quadruped joint controller, MoveIt is out of reach, and **sim-to-real is unproven** — so treat it as learning/experimentation, never as a substitute for the suspended-hardware tests in the project plan.
 
 ---
 
@@ -102,11 +107,13 @@ Learn each module in the *same window* the project stage needs it — this is wh
 | **Stage 1** (single leg) | B3, B4(part), C2, B7(safety-first) | Wire/verify a pot + PWM; run the test-leg sketch with *understanding* |
 | **Stage 2** (firmware) | B4–B6, C1 (tune the real PID), A1–A3 | Modify every firmware module; debug UDP like a network engineer |
 | **Stage 3** (ROS2 ws) | A3–A6, A8; C4 | Build the workspace, model the robot, understand the hardware-interface glue |
-| **Stage 4** (gaits/teleop) | A5(revisit), C3; OpenClaw docs | Diagnose "why is it limping" = trace topics/frames |
+| **Stage 4** (gaits/teleop) | A5(revisit), C3; **A9 (OmniSim quadrupeds, optional)**; OpenClaw docs | Watch real quadruped gaits in sim *before* judging your own; diagnose "why is it limping" = trace topics/frames |
 | **Stage 5** (SLAM/sensors) | A7 (TB3 simulation!), C5 | Run mapping/localization; configure the LiDAR driver |
 | **Stage 6** (Nav2/sign-off) | A7 deepen; C6; safety docs | Configure Nav2 params; run fault-injection tests like an incident drill |
 
 > The TB3 simulation in A7 is the single highest-value hour-per-hour investment: it teaches Stage 5+6 *concepts* (SLAM, Nav2, costmaps) in pure software, weeks before the robot can walk.
+>
+> Runner-up (optional): **OmniSim's quadruped demos** (A9) — the only software in this plan where you watch a *legged* robot walk, stumble and recover, which is exactly the problem ClawDog faces at Stage 4.
 
 ---
 
@@ -121,7 +128,7 @@ Two pace options; the column order is what matters more than the calendar.
 | 5–6 | B4, A3, C2 | B6–B7, A4–A5 (now ready to *do* Stage 1–2 work) |
 | 7–8 | A4–A5, B5 | A6, C3, TB3 install |
 | 9–10 | A6, B6, C3 | A7 (TB3 SLAM/Nav2 lab) |
-| 11–12 | A7 (TB3 lab), B7 | A7 polish, C4–C5, OpenClaw intro |
+| 11–12 | A7 (TB3 lab), B7, start A9 (OmniSim) | A7 polish, C4–C5, OpenClaw intro (+A9 OmniSim optional) |
 | 13–14 | C4–C6, OpenClaw intro | Buffer/overrun → back into project stages |
 
 Realistic target: **~10–12 weeks of part-time study** puts you at the *operating* level every Stage 1–4 task needs; Stages 5–6 remain configuration-level learning as you reach them.
@@ -139,6 +146,7 @@ Realistic target: **~10–12 weeks of part-time study** puts you at the *operati
 | I2C sensor breakout (MPU6050 IMU is cheapest) | $3–6 | B4 I2C/UART parsing |
 | Multimeter | $15–30 (if you lack one) | Every hardware stage — you will thank yourself |
 | Ubuntu 22.04 machine **or** Docker on your current box | $0 | ROS2 Humble (Docker: `osrf/ros:humble-desktop`) until Stage 3 |
+| *(optional)* OmniSim simulator (module A9) | $0 | Source-build on the same Ubuntu 22.04/24.04 box (~25–45 min); CPU physics is fine — no GPU needed |
 
 Total lab: **≈$40–70**, versus a robotics course that costs far more and teaches less of what ClawDog specifically needs.
 

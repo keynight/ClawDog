@@ -182,6 +182,7 @@ Record every resolution as a short ADR or an amendment note so history is preser
 - 4 actuated joints (one per leg DOF) with names `joint_0..3` matching firmware; links/masses estimated; visual meshes may start as boxes.
 - Joint limits sourced from calibration doc; TF tree (`base_link` → … ) per ARCHITECTURE.
 - `check_urdf` clean; RViz renders model; moving joints in RViz matches physical motion direction (verify with the real leg suspended).
+- *(Optional, offline check)* import the URDF into a simulator that supports URDF spawning — e.g. **OmniSim** (github.com/omnilink-tech/omnisim) — to sanity-check links/joints without hardware. OmniSim is a learning/experimentation tool for this project (see `docs/LEARNING_PLAN.md` module A9), not a substitute for suspended-hardware tests: its `ros2_control` interface is verified for velocity-commanded bases, its Nav2 bring-up is Jazzy-only, and sim-to-real is unproven.
 
 ## 3.3 ros2_control hardware interface
 - `ClawDogHardware` implementing `SystemInterface`: `read()` parses ESP32 TX UDP frames → `/joint_states`; `write()` sends RX frames; connection-loss handling stops joints.
@@ -205,6 +206,7 @@ Record every resolution as a short ADR or an amendment note so history is preser
 ## 4.1 OpenClaw integration
 - Add OpenClaw as git submodule/package under `openclaw/`; confirm ROS2 compatibility early (fork/modify if the published integration is stale — risk R5).
 - Gait generator node publishes `/joint_trajectory` at 50 Hz: stand, walk, trot (bound/pace later); parameters speed, step height, duty factor; smooth gait transitions; all trajectory points within joint limits.
+- *(Optional reference)* before floor tests, watch a simulated quadruped walk in **OmniSim** (shipped Go2/OmniQuad legged demos) to calibrate expectations for stance timing and recovery — pure software, CPU-only; see `docs/LEARNING_PLAN.md` module A9.
 
 ## 4.2 Teleoperation
 - Teleop node: gamepad (Xbox/PS via `joy`) + keyboard fallback (WASD + gait switches); deadband ±10%; E-stop button mapped (Xbox BACK / PS4 SHARE).
