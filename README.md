@@ -21,7 +21,7 @@ Transform a standard toy robot dog into an intelligent, autonomous quadruped by:
 |-----------|------|------|
 | **MCU** | ESP32-S3-N16R8 (16MB flash, 8MB PSRAM) | Real-time control, UDP bridge |
 | **Motors** | 4× DC motors + potentiometers (original toy) | Leg actuation, position feedback |
-| **Motor drivers** | 5× SA8301 dual H-bridge | PWM control, 1.5A cont / 2.5A peak per channel |
+| **Motor drivers** | 5× SA8301 dual H-bridge (original toy) | PWM control, 1.5A cont / 2.5A peak per channel |
 | **LiDAR** | WitMotion D6 (dTOF, 12m, 360°, UART @ 921600) | SLAM, obstacle avoidance |
 | **Radar** | LD2420 (24GHz mmWave, UART @ 115200) | Human presence detection, emergency stop |
 | **IMU** | BNO055 (I2C @ 400kHz) | Orientation for gait stabilization |
